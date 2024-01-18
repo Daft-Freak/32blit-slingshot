@@ -46,6 +46,8 @@ static void update_file_list() {
 
         return should_display_file(join_path(path, info.name));
     });
+
+    file_list_offset = 0;
 }
 
 void init() {
@@ -63,8 +65,9 @@ void render(uint32_t time) {
     screen.pen = Pen(255, 255, 255);
     screen.rectangle(Rect(0, 0, 320, 14));
 
+    // TODO: scroll if too long
     screen.pen = Pen(0, 0, 0);
-    screen.text("Hello 32blit!", minimal_font, Point(5, 4));
+    screen.text(path, minimal_font, Point(5, 4));
 
     if(!file_list.empty()) {
         screen.pen = {255, 255, 255};
@@ -84,6 +87,30 @@ void update(uint32_t time) {
             file_list_offset++;
             if(file_list_offset >= int(file_list.size()))
                 file_list_offset = 0;
+        }
+
+        if(buttons.released & Button::A) {
+            auto &current_file = file_list[file_list_offset];
+
+            if(current_file.flags & FileFlags::directory) {
+                path = join_path(path, current_file.name);
+                update_file_list();
+            } else {
+                // launch, probably
+            }
+        }
+
+        if(buttons.released & Button::B) {
+            if(path != "/") {
+                // go up
+                auto pos = path.find_last_of('/', path.length() - 2);
+                if(pos == 0)
+                    path = "/";
+                else
+                    path = path.substr(0, pos);
+
+                update_file_list();
+            }
         }
     }
 }
