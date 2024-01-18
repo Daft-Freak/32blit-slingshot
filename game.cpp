@@ -115,7 +115,6 @@ void render(uint32_t time) {
         offset.y = scroll_offset.y < 0 ? -screen.bounds.h - scroll_offset.y : screen.bounds.h - scroll_offset.y ;
 
         auto splash_center = offset + center_pos;
-        debugf("%i %i\n", offset.x, offset.y);
 
         // splash placeholder
         screen.pen = {127, 0, 255};
