@@ -64,14 +64,6 @@ void render(uint32_t time) {
     screen.pen = Pen(0, 0, 0);
     screen.clear();
 
-    // draw some text at the top of the screen
-    screen.pen = Pen(255, 255, 255);
-    screen.rectangle(Rect(0, 0, 320, 12));
-
-    // TODO: scroll if too long
-    screen.pen = Pen(0, 0, 0);
-    screen.text(path, minimal_font, Point(5, 3));
-
     const Size splash_size(128, 96);
 
     Point center_pos(screen.bounds.w / 2, screen.bounds.h / 2);
@@ -120,6 +112,14 @@ void render(uint32_t time) {
         screen.pen = {127, 0, 255};
         screen.rectangle({splash_center - Point(splash_size.w, splash_size.h) / 2, splash_size});
     }
+
+    // draw current path
+    screen.pen = Pen(255, 255, 255);
+    screen.rectangle(Rect(0, 0, 320, 12));
+
+    // TODO: scroll if too long
+    screen.pen = Pen(0, 0, 0);
+    screen.text(path, minimal_font, Point(5, 3));
 }
 
 void update(uint32_t time) {
