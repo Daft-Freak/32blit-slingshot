@@ -168,19 +168,20 @@ void update(uint32_t time) {
                 // launch, probably
             }
         }
+    }
 
-        if(buttons.released & Button::B) {
-            if(path != "/") {
-                // go up
-                auto pos = path.find_last_of('/', path.length() - 2);
-                if(pos == 0)
-                    path = "/";
-                else
-                    path = path.substr(0, pos);
+    if(buttons.released & Button::B) {
+        if(path != "/") {
+            // go up
+            auto pos = path.find_last_of('/', path.length() - 2);
+            if(pos == 0)
+                path = "/";
+            else
+                path = path.substr(0, pos);
 
-                update_file_list();
-                scroll_offset.y += screen.bounds.h;
-            }
+            update_file_list();
+            scroll_offset.y += screen.bounds.h;
         }
     }
+
 }
