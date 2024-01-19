@@ -1,7 +1,21 @@
+#include <cstring>
+#include <list>
+#include <optional>
+
 #include "32blit.hpp"
+#include "metadata.hpp"
+
 #include "assets.hpp"
 
 using namespace blit;
+
+struct MetadataCacheEntry {
+    BlitGameMetadata data;
+    bool valid = false;
+    std::string path;
+};
+
+std::list<MetadataCacheEntry> metadata_cache;
 
 static std::string path = "/";
 
@@ -55,9 +69,87 @@ static void update_file_list() {
     scroll_offset.x = 0;
 }
 
+// TODO: this is copied from the SDK launcher...
+static bool parse_file_metadata(const std::string &filename, BlitGameMetadata &metadata, bool unpack_images = false) {
+    blit::File f(filename);
+
+    if(!f.is_open())
+        return false;
+
+    uint32_t offset = 0;
+
+    uint8_t buf[sizeof(BlitGameHeader)];
+    auto read = f.read(offset, sizeof(buf), (char *)&buf);
+
+    // skip relocation data
+    if(memcmp(buf, "RELO", 4) == 0) {
+        uint32_t num_relocs;
+        f.read(4, 4, (char *)&num_relocs);
+
+        offset = num_relocs * 4 + 8;
+        // re-read header
+        read = f.read(offset, sizeof(buf), (char *)&buf);
+    }
+
+    // game header - skip to metadata
+    if(memcmp(buf, "BLITMETA", 8) != 0) {
+        auto &header = *(BlitGameHeader *)buf;
+        if(read == sizeof(BlitGameHeader) && header.magic == blit_game_magic) {
+            metadata.device_id = header.device_id;
+            metadata.api_version_major = header.device_id == BlitDevice::STM32BlitOld ? 0 : header.api_version_major;
+            metadata.api_version_minor = header.device_id == BlitDevice::STM32BlitOld ? 0 : header.api_version_minor;
+
+            offset += (header.end & 0x1FFFFFF);
+            read = f.read(offset, 10, (char *)buf);
+        }
+    }
+
+    if(read >= 10 && memcmp(buf, "BLITMETA", 8) == 0) {
+        // don't bother reading the whole thing if we don't want the images
+        auto metadata_len = unpack_images ? *reinterpret_cast<uint16_t *>(buf + 8) : sizeof(RawMetadata);
+
+        uint8_t metadata_buf[0xFFFF];
+        f.read(offset + 10, metadata_len, (char *)metadata_buf);
+
+        parse_metadata(reinterpret_cast<char *>(metadata_buf), metadata_len, metadata, unpack_images);
+
+        return true;
+    }
+
+    return false;
+}
+
+static BlitGameMetadata *get_metadata(const std::string &path) {
+
+    for(auto it = metadata_cache.begin(); it != metadata_cache.end(); ++it) {
+        if(it->path == path) {
+            // move to top
+            metadata_cache.splice(metadata_cache.begin(), metadata_cache, it);
+
+            if(it->valid)
+                return &it->data;
+            
+            return nullptr; // cached failure
+        }
+    }
+
+    // reuse least recently used
+    auto it = std::prev(metadata_cache.end());
+
+    it->valid = parse_file_metadata(path, it->data, true);
+    it->path = path;
+
+    metadata_cache.splice(metadata_cache.begin(), metadata_cache, it);
+
+    return it->valid ? &it->data : nullptr;
+}
+
 void init() {
     default_splash = Surface::load(asset_no_image);
     folder_splash = Surface::load(asset_folder_splash);
+
+    metadata_cache.emplace_front(MetadataCacheEntry{});
+    metadata_cache.emplace_front(MetadataCacheEntry{});
 
     // TODO: list_installed_games, top level installed/filesystem
     // TODO: remember last path
@@ -93,15 +185,25 @@ void render(uint32_t time) {
             continue;
         }
 
-        auto splash_center = offset + center_pos;
+        // fetch metadata
+        bool is_dir = info.flags & FileFlags::directory;
 
-        // splash placeholder
+        auto metadata = is_dir ? nullptr : get_metadata(join_path(path, info.name));
+
+        // splash
+        auto splash_center = offset + center_pos;
+        auto splash_image = is_dir ? folder_splash : default_splash;
+
+        if(metadata)
+            splash_image = metadata->splash;
+
         float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
-        auto splash_image = info.flags & FileFlags::directory ? folder_splash : default_splash;
         screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
 
+        // game title/dir name
         screen.pen = {255, 255, 255};
-        screen.text(info.name, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
+        auto label = metadata ? metadata->title : info.name;
+        screen.text(label, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
 
         i++;
     }
