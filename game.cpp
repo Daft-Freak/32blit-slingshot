@@ -11,6 +11,8 @@ static int file_list_offset = 0;
 
 static Point scroll_offset;
 
+static Surface *default_splash, *folder_splash;
+
 static std::string join_path(const std::string &a, const std::string &b) {
     std::string ret;
     ret.reserve(a.length() + b.length() + 1);
@@ -54,6 +56,9 @@ static void update_file_list() {
 }
 
 void init() {
+    default_splash = Surface::load(asset_no_image);
+    folder_splash = Surface::load(asset_folder_splash);
+
     // TODO: list_installed_games, top level installed/filesystem
     // TODO: remember last path
     update_file_list();
@@ -65,6 +70,7 @@ void render(uint32_t time) {
     screen.clear();
 
     const Size splash_size(128, 96);
+    const Point splash_half_size(splash_size.w / 2, splash_size.h / 2);
 
     Point center_pos(screen.bounds.w / 2, screen.bounds.h / 2);
     int full_list_width = file_list.size() * screen.bounds.w;
@@ -90,11 +96,12 @@ void render(uint32_t time) {
         auto splash_center = offset + center_pos;
 
         // splash placeholder
-        screen.pen = {127, 0, 255};
-        screen.rectangle({splash_center - Point(splash_size.w, splash_size.h) / 2, splash_size});
+        float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
+        auto splash_image = info.flags & FileFlags::directory ? folder_splash : default_splash;
+        screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
 
         screen.pen = {255, 255, 255};
-        screen.text(info.name, minimal_font, splash_center + Point(0, splash_size.h / 2 + 6), true, TextAlign::center_center);
+        screen.text(info.name, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
 
         i++;
     }
@@ -109,8 +116,8 @@ void render(uint32_t time) {
         auto splash_center = offset + center_pos;
 
         // splash placeholder
-        screen.pen = {127, 0, 255};
-        screen.rectangle({splash_center - Point(splash_size.w, splash_size.h) / 2, splash_size});
+        float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
+        screen.stretch_blit(folder_splash, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
     }
 
     // draw current path
