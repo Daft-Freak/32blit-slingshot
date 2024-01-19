@@ -41,6 +41,26 @@ static std::string join_path(const std::string &a, const std::string &b) {
     return ret;
 }
 
+// splits the last part of the path
+// e.g. /path/to/thing -> /path/to, thing
+static std::pair<std::string_view, std::string_view> split_path_last(const std::string_view path) {
+    auto pos = path.find_last_of('/');
+
+    // /thing, first part is /
+    if(pos == 0)
+        return {path.substr(0, 1), path.substr(1)};
+
+    auto len = path.length();
+
+    // trailing slash
+    if(pos == path.length() - 1) {
+        pos = path.find_last_of('/', pos - 1);
+        len--;
+    }
+
+    return {path.substr(0, pos), path.substr(pos + 1, len - pos - 1)};
+}
+
 static bool should_display_file(const std::string &path) {
     // TODO: can_launch api
     auto last_dot = path.find_last_of('.');
@@ -67,6 +87,23 @@ static void update_file_list() {
 
     file_list_offset = 0;
     scroll_offset.x = 0;
+}
+
+static void scroll_list_to(const std::string_view filename) {
+    int offset = 0;
+    for(auto & info : file_list) {
+        if(info.name == filename)
+            break;
+
+        offset++;
+    }
+
+    // didn't find it
+    if(offset == int(file_list.size()))
+        return;
+
+    file_list_offset = offset;
+    scroll_offset.x = offset * screen.bounds.w;
 }
 
 // TODO: this is copied from the SDK launcher...
@@ -282,14 +319,13 @@ void update(uint32_t time) {
     if(buttons.released & Button::B) {
         if(path != "/") {
             // go up
-            auto pos = path.find_last_of('/', path.length() - 2);
-            if(pos == 0)
-                path = "/";
-            else
-                path = path.substr(0, pos);
+            auto split = split_path_last(path);
+            auto old_dir = std::string(split.second);
+            path = split.first;
 
             update_file_list();
             scroll_offset.y += screen.bounds.h;
+            scroll_list_to(old_dir);
         }
     }
 
