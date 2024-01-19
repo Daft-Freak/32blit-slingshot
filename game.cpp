@@ -18,6 +18,7 @@ struct MetadataCacheEntry {
 std::list<MetadataCacheEntry> metadata_cache;
 
 static std::string path = "/";
+static std::string dir_change_old_path; // if we just entered/exited a dir
 
 // TODO: custom struct if we need more info
 static std::vector<FileInfo> file_list;
@@ -204,6 +205,34 @@ void render(uint32_t time) {
     Point center_pos(screen.bounds.w / 2, screen.bounds.h / 2);
     int full_list_width = file_list.size() * screen.bounds.w;
 
+    auto render_file = [&center_pos](bool is_dir, Point offset, const std::string &file_path){
+        auto metadata = is_dir ? nullptr : get_metadata(file_path);
+
+        // splash
+        const Size splash_size(128, 96);
+        const Point splash_half_size(splash_size.w / 2, splash_size.h / 2);
+
+        auto splash_center = offset + center_pos;
+        auto splash_image = is_dir ? folder_splash : default_splash;
+
+        if(metadata)
+            splash_image = metadata->splash;
+
+        float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
+        screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
+
+        // game title/dir name
+        std::string_view label;
+
+        if(metadata)
+            label = metadata->title;
+        else
+            label = split_path_last(file_path).second;
+
+        screen.pen = {255, 255, 255};
+        screen.text(label, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
+    };
+
     int i = 0;
     for(auto &info : file_list) {
         auto file_pos = Point(i * screen.bounds.w, 0);
@@ -222,41 +251,18 @@ void render(uint32_t time) {
             continue;
         }
 
-        // fetch metadata
-        bool is_dir = info.flags & FileFlags::directory;
-
-        auto metadata = is_dir ? nullptr : get_metadata(join_path(path, info.name));
-
-        // splash
-        auto splash_center = offset + center_pos;
-        auto splash_image = is_dir ? folder_splash : default_splash;
-
-        if(metadata)
-            splash_image = metadata->splash;
-
-        float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
-        screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
-
-        // game title/dir name
-        screen.pen = {255, 255, 255};
-        auto label = metadata ? metadata->title : info.name;
-        screen.text(label, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
+        render_file(info.flags & FileFlags::directory, offset, join_path(path, info.name));
 
         i++;
     }
 
     // old item scrolling out
-    // TODO: store info
-    if(scroll_offset.y != 0) {
+    if(scroll_offset.y != 0 && !dir_change_old_path.empty()) {
         Point offset;
         offset.x = -(scroll_offset.x % screen.bounds.w);
-        offset.y = scroll_offset.y < 0 ? -screen.bounds.h - scroll_offset.y : screen.bounds.h - scroll_offset.y ;
+        offset.y = scroll_offset.y < 0 ? -screen.bounds.h - scroll_offset.y : screen.bounds.h - scroll_offset.y;
 
-        auto splash_center = offset + center_pos;
-
-        // splash placeholder
-        float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
-        screen.stretch_blit(folder_splash, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
+        render_file(directory_exists(dir_change_old_path), offset, dir_change_old_path);
     }
 
     // draw current path
@@ -309,6 +315,8 @@ void update(uint32_t time) {
                 path = join_path(path, current_file.name);
                 update_file_list();
 
+                dir_change_old_path = path;
+
                 scroll_offset.y -= screen.bounds.h;
             } else {
                 // launch, probably
@@ -319,6 +327,8 @@ void update(uint32_t time) {
     if(buttons.released & Button::B) {
         if(path != "/") {
             // go up
+            dir_change_old_path = file_list.empty() ? "" : join_path(path, file_list[file_list_offset].name);
+
             auto split = split_path_last(path);
             auto old_dir = std::string(split.second);
             path = split.first;
