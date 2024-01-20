@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "32blit.hpp"
+#include "executable.hpp"
 #include "metadata.hpp"
 
 #include "assets.hpp"
