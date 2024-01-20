@@ -5,3 +5,7 @@ assets.cpp:
 
   assets/folder.png:
     name: folder_splash
+
+  assets/8x8font.png:
+    name: font8x8
+    type: font/image

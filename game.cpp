@@ -28,6 +28,8 @@ static Point scroll_offset;
 
 static Surface *default_splash, *folder_splash;
 
+static const Font launcher_font(asset_font8x8);
+
 static std::string join_path(const std::string &a, const std::string &b) {
     std::string ret;
     ret.reserve(a.length() + b.length() + 1);
@@ -230,7 +232,7 @@ void render(uint32_t time) {
             label = split_path_last(file_path).second;
 
         screen.pen = {255, 255, 255};
-        screen.text(label, minimal_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
+        screen.text(label, launcher_font, splash_center + Point(0, (splash_size.h / 2) * scale + 6), true, TextAlign::center_center);
     };
 
     int i = 0;
@@ -271,7 +273,7 @@ void render(uint32_t time) {
 
     // TODO: scroll if too long
     screen.pen = Pen(0, 0, 0);
-    screen.text(path, minimal_font, Point(5, 3));
+    screen.text(path, launcher_font, Point(5, 2));
 }
 
 void update(uint32_t time) {
