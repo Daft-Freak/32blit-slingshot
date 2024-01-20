@@ -136,9 +136,12 @@ static bool parse_file_metadata(const std::string &filename, BlitGameMetadata &m
     if(memcmp(buf, "BLITMETA", 8) != 0) {
         auto &header = *(BlitGameHeader *)buf;
         if(read == sizeof(BlitGameHeader) && header.magic == blit_game_magic) {
+
+#ifdef SHOULD_REALLY_MERGE_SOME_OF_THOSE_CHANGES
             metadata.device_id = header.device_id;
             metadata.api_version_major = header.device_id == BlitDevice::STM32BlitOld ? 0 : header.api_version_major;
             metadata.api_version_minor = header.device_id == BlitDevice::STM32BlitOld ? 0 : header.api_version_minor;
+#endif
 
             offset += (header.end & 0x1FFFFFF);
             read = f.read(offset, 10, (char *)buf);
