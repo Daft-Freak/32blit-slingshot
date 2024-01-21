@@ -89,6 +89,9 @@ static void update_file_list() {
         return should_display_file(join_path(path, info.name));
     });
 
+    // TODO: use a smaller sort function? (like the SDK launcher)
+    std::sort(file_list.begin(), file_list.end(), [](const auto &a, const auto &b) {return a.name < b.name;});
+
     file_list_offset = 0;
     scroll_offset.x = 0;
 }
