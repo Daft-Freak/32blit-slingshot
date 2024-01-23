@@ -10,6 +10,12 @@
 
 using namespace blit;
 
+struct PathSave {
+  char last_path[512];
+};
+
+static const int path_save_slot = 256;
+
 struct MetadataCacheEntry {
     BlitGameMetadata data;
     bool valid = false;
@@ -200,7 +206,24 @@ void init() {
     metadata_cache.emplace_front(MetadataCacheEntry{});
 
     // TODO: list_installed_games, top level installed/filesystem
-    // TODO: remember last path
+
+    // restore previously selected file
+    PathSave save;
+    save.last_path[0] = 0;
+
+    if(read_save(save, path_save_slot)) {
+        auto split = split_path_last(save.last_path);
+
+        if(directory_exists(std::string(split.first))) {
+            path = split.first;
+            update_file_list();
+
+            scroll_list_to(split.second);
+            return;
+        }
+    }
+
+    // load default list
     update_file_list();
 }
 
@@ -360,6 +383,13 @@ void update(uint32_t time) {
 
                 scroll_offset.y -= screen.bounds.h;
             } else {
+                auto launch_path = join_path(path, current_file.name);
+
+                // save last file launched
+                PathSave save{};
+                strncpy(save.last_path, launch_path.c_str(), sizeof(save.last_path) - 1);
+                write_save(save, path_save_slot);
+
                 // launch, probably
             }
         }
