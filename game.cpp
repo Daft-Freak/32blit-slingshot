@@ -26,6 +26,7 @@ static std::vector<FileInfo> file_list;
 static int file_list_offset = 0;
 
 static Point scroll_offset;
+static bool show_details = false;
 
 static Surface *default_splash, *folder_splash;
 
@@ -228,7 +229,38 @@ void render(uint32_t time) {
             splash_image = metadata->splash;
 
         float scale = 1.0f - Vec2(offset).length() / screen.bounds.w;
-        screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, {splash_center - splash_half_size * scale, splash_center + splash_half_size * scale});
+        Rect splash_rect{splash_center - splash_half_size * scale, splash_center + splash_half_size * scale};
+        screen.stretch_blit(splash_image, {Point(0, 0), splash_size}, splash_rect);
+
+        // display additional info
+        // width limit partly so wrap_text doesn't blow up trying to wrap after 0 chars
+        if(metadata && splash_rect.w > 64 && show_details) {
+            screen.pen = {0, 0, 0, 0xC0};
+            screen.rectangle(splash_rect);
+
+            auto metadata_rect = splash_rect;
+
+            // 128px splash doesn't fit on 120x120 screen, clamp
+            if(metadata_rect.w > screen.bounds.w) {
+                metadata_rect.x -= (screen.bounds.w - metadata_rect.w) / 2;
+                metadata_rect.w = screen.bounds.w;
+            }
+
+            metadata_rect.deflate(4);
+
+            auto saved_clip = screen.clip;
+
+            // description
+            screen.pen = {255, 255, 255};
+            screen.clip = metadata_rect;
+            auto wrapped_desc = screen.wrap_text(metadata->description, metadata_rect.w, launcher_font);
+            screen.text(wrapped_desc, launcher_font, metadata_rect);
+
+            // author/version
+            screen.text(metadata->author + "\n" + metadata->version, launcher_font, metadata_rect, true, TextAlign::bottom_left);
+
+            screen.clip = saved_clip;
+        }
 
         // game title/dir name
         std::string_view label;
@@ -348,4 +380,7 @@ void update(uint32_t time) {
         }
     }
 
+    if(buttons.released & Button::Y) {
+        show_details = !show_details;
+    }
 }
