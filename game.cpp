@@ -77,6 +77,9 @@ static std::pair<std::string_view, std::string_view> split_path_last(const std::
 }
 
 static bool should_display_file(const std::string &path) {
+    if(!api.can_launch)
+        return true;
+
     auto res = api.can_launch(path.c_str());
 
     // TODO: display incompatible?
