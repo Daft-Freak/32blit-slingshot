@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "32blit.hpp"
+#include "engine/api_private.hpp"
 #include "executable.hpp"
 #include "metadata.hpp"
 
@@ -73,15 +74,10 @@ static std::pair<std::string_view, std::string_view> split_path_last(const std::
 }
 
 static bool should_display_file(const std::string &path) {
-    // TODO: can_launch api
-    auto last_dot = path.find_last_of('.');
+    auto res = api.can_launch(path.c_str());
 
-    auto ext = last_dot == std::string::npos ? "" : path.substr(last_dot + 1);
-
-    for(auto &c : ext)
-        c = tolower(c);
-
-    return ext == "blit";
+    // TODO: display incompatible?
+    return res == CanLaunchResult::Success;
 }
 
 static void update_file_list() {
