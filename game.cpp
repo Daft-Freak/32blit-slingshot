@@ -25,7 +25,7 @@ struct MetadataCacheEntry {
 
 std::list<MetadataCacheEntry> metadata_cache;
 
-static std::string path = "/";
+static std::string path = "";
 static std::string dir_change_old_path; // if we just entered/exited a dir
 
 // TODO: custom struct if we need more info
@@ -40,6 +40,9 @@ static Surface *default_splash, *folder_splash;
 static const Font launcher_font(asset_font8x8);
 
 static std::string join_path(const std::string &a, const std::string &b) {
+    if(a.empty())
+        return b;
+
     std::string ret;
     ret.reserve(a.length() + b.length() + 1);
 
@@ -81,16 +84,26 @@ static bool should_display_file(const std::string &path) {
 }
 
 static void update_file_list() {
-    file_list = list_files(path, [](const FileInfo &info){
-        // hidden file
-        if(info.name[0] == '.')
-            return false;
+    if(path == "") {
+        // top level installed/storage selection
 
-        if(info.flags & FileFlags::directory)
-            return true;
+        file_list.clear();
+        file_list.emplace_back(FileInfo{"/", FileFlags::directory, 0});
 
-        return should_display_file(join_path(path, info.name));
-    });
+        if(api.list_installed_games)
+            file_list.emplace_back(FileInfo{"flash:", FileFlags::directory, 0});
+    } else {
+        file_list = list_files(path, [](const FileInfo &info){
+            // hidden file
+            if(info.name[0] == '.')
+                return false;
+
+            if(info.flags & FileFlags::directory)
+                return true;
+
+            return should_display_file(join_path(path, info.name));
+        });
+    }
 
     // TODO: use a smaller sort function? (like the SDK launcher)
     std::sort(file_list.begin(), file_list.end(), [](const auto &a, const auto &b) {return a.name < b.name;});
@@ -194,7 +207,12 @@ void init() {
     metadata_cache.emplace_front(MetadataCacheEntry{});
     metadata_cache.emplace_front(MetadataCacheEntry{});
 
-    // TODO: list_installed_games, top level installed/filesystem
+    // list installed games
+    if(api.list_installed_games) {
+        api.list_installed_games([](const uint8_t *ptr, uint32_t block, uint32_t size){
+            File::add_buffer_file("flash:/" + std::to_string(block) + ".blit", ptr, size);
+        });
+    }
 
     // restore previously selected file
     PathSave save;
@@ -279,6 +297,10 @@ void render(uint32_t time) {
 
         if(metadata)
             label = metadata->title;
+        else if(file_path == "/")
+            label = "Storage";
+        else if(file_path == "flash:")
+            label = "Installed";
         else
             label = split_path_last(file_path).second;
 
@@ -385,13 +407,23 @@ void update(uint32_t time) {
     }
 
     if(buttons.released & Button::B) {
-        if(path != "/") {
+        if(!path.empty() && path != "/" && path != "flash:") {
             // go up
             dir_change_old_path = file_list.empty() ? "" : join_path(path, file_list[file_list_offset].name);
 
             auto split = split_path_last(path);
             auto old_dir = std::string(split.second);
             path = split.first;
+
+            update_file_list();
+            scroll_offset.y += screen.bounds.h;
+            scroll_list_to(old_dir);
+        } else if(!path.empty()) {
+            // back to installed/storage
+            dir_change_old_path = file_list.empty() ? "" : join_path(path, file_list[file_list_offset].name);
+
+            auto old_dir = path;
+            path = "";
 
             update_file_list();
             scroll_offset.y += screen.bounds.h;
