@@ -402,6 +402,15 @@ void update(uint32_t time) {
                 write_save(save, path_save_slot);
 
                 // launch, probably
+                if(api.launch && api.launch(launch_path.c_str()))
+                {
+                    // yay!
+                }
+                else
+                {
+                    // oh no
+                    // TODO: display error
+                }
             }
         }
     }
