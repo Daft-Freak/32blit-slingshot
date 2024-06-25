@@ -95,7 +95,7 @@ static void update_file_list() {
     } else {
         file_list = list_files(path, [](const FileInfo &info){
             // hidden file
-            if(info.name[0] == '.')
+            if(info.name[0] == '.' || info.name == "System Volume Information")
                 return false;
 
             if(info.flags & FileFlags::directory)
